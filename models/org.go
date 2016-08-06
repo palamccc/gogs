@@ -330,27 +330,24 @@ func ChangeOrgUserStatus(orgID, uid int64, public bool) error {
 }
 
 // AddOrgUser adds new user to given organization.
-func AddOrgUser(orgID, uid int64) error {
+func AddOrgUser(orgID, uid int64) (err error) {
 	if IsOrganizationMember(orgID, uid) {
 		return nil
 	}
 
 	sess := x.NewSession()
-	defer sess.Close()
-	if err := sess.Begin(); err != nil {
+	defer sessionRelease(sess)
+	if err = sess.Begin(); err != nil {
 		return err
 	}
 
-	ou := &OrgUser{
+	orgUser := &OrgUser{
 		Uid:   uid,
 		OrgID: orgID,
 	}
-
-	if _, err := sess.Insert(ou); err != nil {
-		sess.Rollback()
+	if _, err := sess.Insert(orgUser); err != nil {
 		return err
 	} else if _, err = sess.Exec("UPDATE `user` SET num_members = num_members + 1 WHERE id = ?", orgID); err != nil {
-		sess.Rollback()
 		return err
 	}
 
@@ -359,9 +356,8 @@ func AddOrgUser(orgID, uid int64) error {
 
 // RemoveOrgUser removes user from given organization.
 func RemoveOrgUser(orgID, userID int64) error {
-	ou := new(OrgUser)
-
-	has, err := x.Where("uid=?", userID).And("org_id=?", orgID).Get(ou)
+	orgUser := new(OrgUser)
+	has, err := x.Where("uid=?", userID).And("org_id=?", orgID).Get(orgUser)
 	if err != nil {
 		return fmt.Errorf("get org-user: %v", err)
 	} else if !has {
@@ -400,7 +396,7 @@ func RemoveOrgUser(orgID, userID int64) error {
 		return err
 	}
 
-	if _, err := sess.Id(ou.ID).Delete(ou); err != nil {
+	if _, err := sess.Id(orgUser.ID).Delete(orgUser); err != nil {
 		return err
 	} else if _, err = sess.Exec("UPDATE `user` SET num_members=num_members-1 WHERE id=?", orgID); err != nil {
 		return err
