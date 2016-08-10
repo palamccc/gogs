@@ -130,11 +130,7 @@ func (cmt *Comment) MailParticipants(opType ActionType, issue *Issue) (err error
 	case ACTION_REOPEN_ISSUE:
 		issue.Content = fmt.Sprintf("Reopened #%d", issue.Index)
 	}
-	if err = mailIssueCommentToParticipants(issue, cmt.Poster, mentions); err != nil {
-		log.Error(4, "mailIssueCommentToParticipants: %v", err)
-	}
-
-	return nil
+	return mailIssueCommentToParticipants(issue, cmt.Poster, mentions)
 }
 
 func createComment(e *xorm.Session, opts *CreateCommentOptions) (_ *Comment, err error) {
@@ -233,7 +229,9 @@ func createComment(e *xorm.Session, opts *CreateCommentOptions) (_ *Comment, err
 		if err = notifyWatchers(e, act); err != nil {
 			log.Error(4, "notifyWatchers: %v", err)
 		}
-		comment.MailParticipants(act.OpType, opts.Issue)
+		if err = comment.MailParticipants(act.OpType, opts.Issue); err != nil {
+			log.Error(4, "MailParticipants: %v", err)
+		}
 	}
 
 	return comment, nil
